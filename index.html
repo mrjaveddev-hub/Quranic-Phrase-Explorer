@@ -35,6 +35,12 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        .active-item {
+            background-color: #f0fdf4 !important;
+            border-color: #10b981 !important;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
     </style>
 </head>
 <body class="bg-[#f8fafc] text-slate-900">
@@ -48,7 +54,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-extrabold tracking-tight">Quranic Phrase Explorer</h1>
-                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Automated Analysis Mode</p>
+                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Translation & Root Mapping</p>
                 </div>
             </div>
 
@@ -57,7 +63,6 @@
                     <div id="loadingIndicator" class="loader w-3 h-3 border-2 border-slate-200 rounded-full"></div>
                     <span id="statText">Connecting to Database...</span>
                 </div>
-                <!-- Manual Fallback UI (Only shown on error) -->
                 <label id="uploadBtn" class="hidden cursor-pointer bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-bold hover:bg-slate-800 transition-all">
                     Load JSON Manually
                     <input type="file" id="fileInput" accept=".json" class="hidden">
@@ -67,17 +72,10 @@
 
         <div class="grid grid-cols-1 md:grid-cols-12 gap-8 h-[calc(100vh-220px)]">
             <!-- Sidebar: Root Words -->
-            <aside class="md:col-span-4 flex flex-col gap-4 overflow-hidden">
-                <div class="bg-white p-2 rounded-2xl border border-slate-200 shadow-sm">
-                    <div class="relative">
-                        <input type="text" id="searchInput" placeholder="Search root word..." class="w-full pl-12 pr-4 py-4 rounded-xl bg-slate-50 border-none focus:ring-2 focus:ring-emerald-500 transition-all font-arabic text-xl text-right">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                    </div>
-                </div>
-
+            <aside class="md:col-span-4 flex flex-col overflow-hidden">
                 <div class="flex-1 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
                     <div class="p-4 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
-                        <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400 tracking-tight">Pattern | Translation</span>
+                        <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400 tracking-tight">Root Meanings & Counts</span>
                         <div id="itemCount" class="text-[10px] font-mono text-slate-400">0 items</div>
                     </div>
                     <div id="listItems" class="overflow-y-auto p-3 space-y-1">
@@ -89,35 +87,33 @@
                 </div>
             </aside>
 
-            <!-- Main Panel: The Tree -->
+            <!-- Main Panel -->
             <main class="md:col-span-8 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-                <div id="canvasHeader" class="hidden border-b border-slate-50 bg-gradient-to-br from-white to-emerald-50/20">
-                    <div class="p-8">
-                        <div class="flex items-center justify-between mb-4">
-                            <div id="activeWordDisplay" class="text-6xl font-arabic text-slate-900"></div>
-                            <div id="badge" class="bg-emerald-600 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-tighter">Root Pattern</div>
+                <!-- Combined Phrase Sequence Display with Translation -->
+                <div id="phraseBar" class="hidden bg-emerald-50 border-b border-emerald-100 p-6">
+                    <div class="flex flex-col gap-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[9px] font-bold text-emerald-600 uppercase tracking-[0.2em]">Combined Phrase Sequence</span>
+                            <button onclick="resetPhrase()" class="text-[9px] font-bold text-slate-400 hover:text-emerald-600 uppercase tracking-widest transition-colors">Reset Path</button>
                         </div>
-                        <div id="activeWordMeta" class="text-xs font-semibold text-slate-400 uppercase tracking-widest"></div>
-                    </div>
-                    
-                    <!-- Combined Phrase Section (Red Section) -->
-                    <div id="phraseSection" class="px-8 py-4 bg-red-50 border-t border-red-100 flex flex-col gap-1">
-                        <span class="text-[9px] font-bold text-red-400 uppercase tracking-[0.2em]">Combined Phrase Sequence</span>
-                        <div id="phraseDisplay" class="font-arabic text-4xl text-red-700 leading-relaxed text-right min-h-[50px] transition-all duration-300"></div>
+                        <div class="flex flex-col gap-1">
+                            <div id="phraseDisplay" class="font-arabic text-4xl text-emerald-900 leading-relaxed text-right min-h-[50px] transition-all duration-300"></div>
+                            <div id="translationDisplay" class="text-sm font-medium text-slate-500 italic text-right min-h-[20px] transition-all duration-300"></div>
+                        </div>
                     </div>
                 </div>
-                
+
                 <div id="emptyState" class="flex-1 flex flex-col items-center justify-center p-12 text-center">
                     <div class="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6">
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                         </svg>
                     </div>
                     <h3 class="text-lg font-bold text-slate-700">Exploration Canvas</h3>
-                    <p class="max-w-xs text-sm text-slate-400 mt-2">Choose a root pattern from the list to begin tracing its occurrences.</p>
+                    <p class="max-w-xs text-sm text-slate-400 mt-2">Select a root word from the sidebar to begin tracing its phrase sequence branches.</p>
                 </div>
 
-                <div id="treeContainer" class="flex-1 p-8 overflow-y-auto hidden">
+                <div id="treeContainer" class="flex-1 p-8 md:p-12 overflow-y-auto hidden">
                     <!-- Tree content injected here -->
                 </div>
             </main>
@@ -126,26 +122,27 @@
 
     <script>
         let trieData = null;
+        let activeRoot = null;
         let activePhraseParts = [];
+        let activeTranslationParts = [];
 
         const listItems = document.getElementById('listItems');
         const statText = document.getElementById('statText');
         const loadingIndicator = document.getElementById('loadingIndicator');
-        const searchInput = document.getElementById('searchInput');
         const phraseDisplay = document.getElementById('phraseDisplay');
+        const translationDisplay = document.getElementById('translationDisplay');
+        const phraseBar = document.getElementById('phraseBar');
         const uploadBtn = document.getElementById('uploadBtn');
         const fileInput = document.getElementById('fileInput');
 
-        // Handles data after loading (from fetch or file)
         function handleLoadedData(data) {
             trieData = data;
             loadingIndicator.style.display = 'none';
             uploadBtn.classList.add('hidden');
-            statText.innerText = `${Object.keys(trieData).length} Root Patterns Loaded`;
+            statText.innerText = `${Object.keys(trieData).length} Roots Loaded`;
             renderList();
         }
 
-        // Manual File Fallback
         fileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
@@ -153,158 +150,145 @@
             reader.onload = (event) => {
                 try {
                     handleLoadedData(JSON.parse(event.target.result));
-                } catch (err) {
-                    alert("Invalid JSON format");
-                }
+                } catch (err) { alert("Invalid JSON format"); }
             };
             reader.readAsText(file);
         });
 
-        // Automatically fetch data on load
         async function initData() {
             try {
-                // Determine absolute path if possible or use relative
-                const dataUrl = './quran_tree_optimized.json';
-                
-                const response = await fetch(dataUrl);
+                const response = await fetch('./quran_tree_optimized.json');
                 if (!response.ok) throw new Error('Fetch failed');
-                
                 const data = await response.json();
                 handleLoadedData(data);
             } catch (err) {
-                console.warn("Auto-fetch failed. Showing manual upload button.", err);
                 loadingIndicator.style.display = 'none';
-                statText.innerText = "Data file not found locally";
+                statText.innerText = "Local Data Not Found";
                 uploadBtn.classList.remove('hidden');
-                
-                listItems.innerHTML = `
-                    <div class="p-8 text-center">
-                        <div class="text-slate-500 font-bold mb-2">Automated Load Failed</div>
-                        <p class="text-[10px] text-slate-400 leading-relaxed">The browser couldn't find the file automatically. This usually happens in sandboxed environments.</p>
-                        <p class="text-[10px] text-emerald-600 font-bold mt-4 uppercase tracking-wider">Please click "Load JSON Manually" above.</p>
-                    </div>
-                `;
+                listItems.innerHTML = `<div class="p-8 text-center text-xs text-slate-400">Please load the optimized JSON file to begin.</div>`;
             }
         }
 
-        searchInput.addEventListener('input', () => {
-            renderList(searchInput.value);
-        });
-
-        function renderList(filter = '') {
+        function renderList() {
             if (!trieData) return;
             listItems.innerHTML = '';
-            
-            const filteredWords = Object.keys(trieData)
-                .filter(w => w.includes(filter))
+            const words = Object.keys(trieData)
                 .sort((a, b) => trieData[b].c - trieData[a].c);
 
-            document.getElementById('itemCount').innerText = `${filteredWords.length} items`;
+            document.getElementById('itemCount').innerText = `${words.length} items`;
 
-            if (filteredWords.length === 0) {
-                listItems.innerHTML = `<div class="p-8 text-center text-slate-400 italic text-sm">No patterns found matching "${filter}"</div>`;
-                return;
-            }
-
-            filteredWords.forEach(word => {
+            words.forEach(word => {
                 const item = trieData[word];
-                const translation = item.t || "Root Pattern"; 
-                
                 const btn = document.createElement('button');
-                btn.className = "w-full flex items-center justify-between p-4 rounded-2xl hover:bg-emerald-50 transition-all border border-transparent hover:border-emerald-100 group text-right";
+                btn.id = `btn-${word}`;
+                btn.className = "w-full p-4 rounded-2xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-200 group text-right flex flex-col gap-2";
+                if (activeRoot === word) btn.classList.add('active-item');
+                
                 btn.onclick = () => selectWord(word);
                 btn.innerHTML = `
-                    <div class="flex items-center gap-2">
-                        <span class="text-[10px] font-mono bg-slate-100 text-slate-500 px-2 py-0.5 rounded-lg group-hover:bg-emerald-600 group-hover:text-white transition-colors">${item.c}</span>
-                        <div class="text-[11px] font-semibold text-slate-400 italic">${translation}</div>
+                    <div class="flex items-center justify-between w-full">
+                         <div class="flex gap-1.5 text-left">
+                            <span class="text-[9px] font-bold bg-white text-emerald-600 px-2 py-0.5 rounded-lg border border-emerald-100 shadow-sm">${item.c}x</span>
+                            <span class="text-[9px] font-bold bg-white text-slate-400 px-2 py-0.5 rounded-lg border border-slate-100 shadow-sm">${Object.keys(item.s).length} branches</span>
+                        </div>
+                        <span class="font-arabic text-2xl text-slate-800 leading-none">${word}</span>
                     </div>
-                    <span class="font-arabic text-2xl text-slate-800 leading-none">${word}</span>
+                    <div class="text-[11px] font-semibold text-slate-500 italic pr-0.5">${item.t || "Root Pattern"}</div>
                 `;
                 listItems.appendChild(btn);
             });
         }
 
         function selectWord(word) {
-            const rootNode = trieData[word];
+            if (activeRoot) {
+                const prev = document.getElementById(`btn-${activeRoot}`);
+                if (prev) prev.classList.remove('active-item');
+            }
+            activeRoot = word;
             activePhraseParts = [word];
+            activeTranslationParts = [trieData[word].t || ""];
             updatePhrase();
-
-            document.getElementById('emptyState').classList.add('hidden');
-            document.getElementById('canvasHeader').classList.remove('hidden');
-            document.getElementById('treeContainer').classList.remove('hidden');
             
-            document.getElementById('activeWordDisplay').innerText = word;
-            document.getElementById('activeWordMeta').innerText = `Total Occurrences: ${rootNode.c} | Unique Branches: ${Object.keys(rootNode.s).length}`;
+            const currentBtn = document.getElementById(`btn-${word}`);
+            if (currentBtn) currentBtn.classList.add('active-item');
+            
+            document.getElementById('emptyState').classList.add('hidden');
+            document.getElementById('phraseBar').classList.remove('hidden');
+            document.getElementById('treeContainer').classList.remove('hidden');
             
             const treeContainer = document.getElementById('treeContainer');
             treeContainer.innerHTML = '';
             
-            const treeRoot = document.createElement('div');
-            treeRoot.className = "space-y-4";
+            const rootLabel = document.createElement('div');
+            rootLabel.className = "text-sm font-bold text-slate-300 uppercase tracking-widest mb-4";
+            rootLabel.innerText = "Branching from root:";
+            treeContainer.appendChild(rootLabel);
             
-            const head = document.createElement('div');
-            head.className = "text-2xl font-arabic font-bold text-emerald-700 bg-emerald-50 inline-block px-4 py-2 rounded-xl border border-emerald-100 mb-2";
-            head.innerText = word;
-            
-            treeRoot.appendChild(head);
-            treeRoot.appendChild(renderNodes(rootNode.s, 0));
-            treeContainer.appendChild(treeRoot);
+            treeContainer.appendChild(renderNodes(trieData[word].s, 0));
+        }
+
+        function resetPhrase() {
+            if (activeRoot) selectWord(activeRoot);
         }
 
         function updatePhrase() {
             phraseDisplay.innerText = activePhraseParts.join(' ');
+            translationDisplay.innerText = activeTranslationParts.filter(t => t).join(' ');
         }
 
         function renderNodes(nodes, depth) {
             if (!nodes || Object.keys(nodes).length === 0) return document.createElement('div');
-
             const wrapper = document.createElement('div');
-            wrapper.className = "ml-8 trie-connector space-y-2";
+            wrapper.className = "ml-8 trie-connector space-y-3";
 
             Object.entries(nodes)
                 .sort((a, b) => b[1].c - a[1].c)
                 .forEach(([word, data]) => {
                     const det = document.createElement('details');
                     det.className = "group transition-all";
-                    
                     const hasChildren = Object.keys(data.s).length > 0;
                     
                     det.addEventListener('toggle', (e) => {
                         if (det.open) {
                             activePhraseParts = activePhraseParts.slice(0, depth + 1);
+                            activeTranslationParts = activeTranslationParts.slice(0, depth + 1);
+                            
                             activePhraseParts.push(word);
+                            activeTranslationParts.push(data.t || "");
                             updatePhrase();
                         }
                     });
 
                     det.innerHTML = `
-                        <summary class="flex items-center gap-3 cursor-pointer p-2.5 rounded-xl hover:bg-slate-50 transition-all">
-                            <div class="flex items-center justify-center w-6 h-6 rounded-lg ${hasChildren ? 'text-emerald-400 group-open:rotate-90' : 'text-slate-200'} transition-transform">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                        <summary class="flex items-center gap-4 cursor-pointer p-3 rounded-2xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100">
+                            <div class="flex items-center justify-center w-8 h-8 rounded-xl ${hasChildren ? 'bg-emerald-100 text-emerald-700 group-open:rotate-90' : 'bg-slate-100 text-slate-400'} transition-transform shadow-sm">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                             </div>
-                            <span class="font-arabic text-xl text-slate-700 leading-none">${word}</span>
-                            <span class="ml-auto text-[10px] font-mono text-slate-400 bg-slate-50 border border-slate-100 px-2 py-0.5 rounded-md">${data.c}x</span>
+                            <div class="flex flex-col text-right">
+                                <span class="font-arabic text-2xl text-slate-700 leading-none">${word}</span>
+                                ${data.t ? `<span class="text-[10px] text-slate-400 font-medium italic">${data.t}</span>` : ''}
+                            </div>
+                            <span class="ml-auto text-[10px] font-bold font-mono text-slate-400 bg-white border border-slate-100 px-2.5 py-1 rounded-lg shadow-sm">${data.c}x</span>
                         </summary>
                     `;
 
-                    if (hasChildren) {
-                        det.appendChild(renderNodes(data.s, depth + 1));
-                    } else {
+                    if (hasChildren) det.appendChild(renderNodes(data.s, depth + 1));
+                    else {
                         const refsDiv = document.createElement('div');
-                        refsDiv.className = "ml-10 p-3 flex flex-wrap gap-1.5";
+                        refsDiv.className = "ml-12 p-4 flex flex-wrap gap-2 border-l-2 border-slate-50 mt-1";
                         data.r.forEach(ref => {
-                            refsDiv.innerHTML += `<span class="text-[9px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200">Verse ${ref}</span>`;
+                            refsDiv.innerHTML += `
+                                <span class="flex items-center gap-1.5 text-[10px] font-bold bg-white text-slate-500 px-3 py-1 rounded-xl border border-slate-200 shadow-sm hover:border-emerald-200 transition-colors">
+                                    Verse  <a href="https://quran.com/${ref}" target="_blank">${ref}</a>
+                                </span>`;
                         });
                         det.appendChild(refsDiv);
                     }
-                    
                     wrapper.appendChild(det);
                 });
-
             return wrapper;
         }
 
-        // Start initialization
         window.onload = initData;
     </script>
 </body>
