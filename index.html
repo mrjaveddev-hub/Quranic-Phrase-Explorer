@@ -199,18 +199,18 @@
                 const item = trieData[word];
                 const btn = document.createElement('button');
                 btn.id = `btn-${word}`;
-                btn.className = "w-full p-3 md:p-4 rounded-xl md:rounded-2xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-200 text-right flex flex-col gap-1";
+                btn.className = "w-full p-3 md:p-4 rounded-xl md:rounded-2xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-200 flex flex-row-reverse items-center justify-between gap-3";
                 if (activeRoot === word) btn.classList.add('active-item');
                 
                 btn.onclick = () => selectWord(word);
                 btn.innerHTML = `
-                    <div class="flex items-center justify-between w-full">
-                         <div class="flex gap-1 text-left">
-                            <span class="text-[8px] font-bold bg-white text-emerald-600 px-1.5 py-0.5 rounded-lg border border-emerald-100">${item.c}x</span>
-                        </div>
+                    <div class="flex flex-row-reverse items-center gap-3">
                         <span class="font-arabic text-xl md:text-2xl text-slate-800 leading-none">${word}</span>
+                        <span class="text-[10px] md:text-[11px] font-semibold text-slate-400 italic truncate max-w-[120px]">${item.t || ""}</span>
                     </div>
-                    <div class="text-[10px] md:text-[11px] font-semibold text-slate-400 italic pr-0.5 truncate">${item.t || ""}</div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-[8px] font-bold bg-white text-emerald-600 px-1.5 py-0.5 rounded-lg border border-emerald-100">${item.c}x</span>
+                    </div>
                 `;
                 listItems.appendChild(btn);
             });
@@ -284,9 +284,9 @@
                             <div class="flex items-center justify-center w-7 h-7 md:w-8 md:h-8 rounded-lg md:rounded-xl ${hasChildren ? 'bg-emerald-100 text-emerald-700 group-open:rotate-90' : 'bg-slate-100 text-slate-400'} transition-transform shadow-sm">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                             </div>
-                            <div class="flex flex-col text-right">
+                            <div class="flex flex-row-reverse items-center gap-3">
                                 <span class="font-arabic text-xl md:text-2xl text-slate-700 leading-none">${word}</span>
-                                ${data.t ? `<span class="text-[9px] md:text-[10px] text-slate-400 font-medium italic truncate max-w-[120px] md:max-w-none">${data.t}</span>` : ''}
+                                ${data.t ? `<span class="text-[9px] md:text-[10px] text-slate-400 font-medium italic truncate max-w-[150px]">${data.t}</span>` : ''}
                             </div>
                             <span class="ml-auto text-[8px] md:text-[9px] font-bold font-mono text-slate-400 bg-white border border-slate-100 px-2 py-0.5 rounded-lg">${data.c}x</span>
                         </summary>
