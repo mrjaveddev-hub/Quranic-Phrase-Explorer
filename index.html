@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quranic Word Tree Explorer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-arabic { font-family: 'Amiri', serif; direction: rtl; }
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
+        .trie-connector { position: relative; }
+        .trie-connector::before {
+            content: '';
+            position: absolute;
+            left: -1rem;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #f1f5f9;
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
+        
+        .loader {
+            border-top-color: #059669;
+            animation: spinner 1.5s linear infinite;
+        }
+        @keyframes spinner {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-[#f8fafc] text-slate-900">
+
+    <div id="app" class="max-w-7xl mx-auto p-4 md:p-8">
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+            <div class="flex items-center gap-4">
+                <div class="bg-emerald-600 p-3 rounded-2xl shadow-lg shadow-emerald-100 text-white">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-xl font-extrabold tracking-tight">Quranic Phrase Explorer</h1>
+                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Automated Analysis Mode</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <div id="stats" class="text-[10px] font-bold uppercase tracking-widest text-slate-400 bg-slate-100 px-4 py-2.5 rounded-xl border border-slate-200 flex items-center gap-2">
+                    <div id="loadingIndicator" class="loader w-3 h-3 border-2 border-slate-200 rounded-full"></div>
+                    <span id="statText">Connecting to Database...</span>
+                </div>
+                <!-- Manual Fallback UI (Only shown on error) -->
+                <label id="uploadBtn" class="hidden cursor-pointer bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-bold hover:bg-slate-800 transition-all">
+                    Load JSON Manually
+                    <input type="file" id="fileInput" accept=".json" class="hidden">
+                </label>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-8 h-[calc(100vh-220px)]">
+            <!-- Sidebar: Root Words -->
+            <aside class="md:col-span-4 flex flex-col gap-4 overflow-hidden">
+                <div class="bg-white p-2 rounded-2xl border border-slate-200 shadow-sm">
+                    <div class="relative">
+                        <input type="text" id="searchInput" placeholder="Search root word..." class="w-full pl-12 pr-4 py-4 rounded-xl bg-slate-50 border-none focus:ring-2 focus:ring-emerald-500 transition-all font-arabic text-xl text-right">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                    </div>
+                </div>
+
+                <div class="flex-1 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                    <div class="p-4 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
+                        <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400 tracking-tight">Pattern | Translation</span>
+                        <div id="itemCount" class="text-[10px] font-mono text-slate-400">0 items</div>
+                    </div>
+                    <div id="listItems" class="overflow-y-auto p-3 space-y-1">
+                        <div id="initialLoader" class="flex flex-col items-center justify-center p-12 text-center gap-4">
+                            <div class="loader w-8 h-8 border-4 border-slate-100 rounded-full"></div>
+                            <span class="text-sm text-slate-400 animate-pulse">Loading Quranic data...</span>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Panel: The Tree -->
+            <main class="md:col-span-8 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                <div id="canvasHeader" class="hidden border-b border-slate-50 bg-gradient-to-br from-white to-emerald-50/20">
+                    <div class="p-8">
+                        <div class="flex items-center justify-between mb-4">
+                            <div id="activeWordDisplay" class="text-6xl font-arabic text-slate-900"></div>
+                            <div id="badge" class="bg-emerald-600 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-tighter">Root Pattern</div>
+                        </div>
+                        <div id="activeWordMeta" class="text-xs font-semibold text-slate-400 uppercase tracking-widest"></div>
+                    </div>
+                    
+                    <!-- Combined Phrase Section (Red Section) -->
+                    <div id="phraseSection" class="px-8 py-4 bg-red-50 border-t border-red-100 flex flex-col gap-1">
+                        <span class="text-[9px] font-bold text-red-400 uppercase tracking-[0.2em]">Combined Phrase Sequence</span>
+                        <div id="phraseDisplay" class="font-arabic text-4xl text-red-700 leading-relaxed text-right min-h-[50px] transition-all duration-300"></div>
+                    </div>
+                </div>
+                
+                <div id="emptyState" class="flex-1 flex flex-col items-center justify-center p-12 text-center">
+                    <div class="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-bold text-slate-700">Exploration Canvas</h3>
+                    <p class="max-w-xs text-sm text-slate-400 mt-2">Choose a root pattern from the list to begin tracing its occurrences.</p>
+                </div>
+
+                <div id="treeContainer" class="flex-1 p-8 overflow-y-auto hidden">
+                    <!-- Tree content injected here -->
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        let trieData = null;
+        let activePhraseParts = [];
+
+        const listItems = document.getElementById('listItems');
+        const statText = document.getElementById('statText');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const searchInput = document.getElementById('searchInput');
+        const phraseDisplay = document.getElementById('phraseDisplay');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const fileInput = document.getElementById('fileInput');
+
+        // Handles data after loading (from fetch or file)
+        function handleLoadedData(data) {
+            trieData = data;
+            loadingIndicator.style.display = 'none';
+            uploadBtn.classList.add('hidden');
+            statText.innerText = `${Object.keys(trieData).length} Root Patterns Loaded`;
+            renderList();
+        }
+
+        // Manual File Fallback
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    handleLoadedData(JSON.parse(event.target.result));
+                } catch (err) {
+                    alert("Invalid JSON format");
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        // Automatically fetch data on load
+        async function initData() {
+            try {
+                // Determine absolute path if possible or use relative
+                const dataUrl = './quran_tree_optimized.json';
+                
+                const response = await fetch(dataUrl);
+                if (!response.ok) throw new Error('Fetch failed');
+                
+                const data = await response.json();
+                handleLoadedData(data);
+            } catch (err) {
+                console.warn("Auto-fetch failed. Showing manual upload button.", err);
+                loadingIndicator.style.display = 'none';
+                statText.innerText = "Data file not found locally";
+                uploadBtn.classList.remove('hidden');
+                
+                listItems.innerHTML = `
+                    <div class="p-8 text-center">
+                        <div class="text-slate-500 font-bold mb-2">Automated Load Failed</div>
+                        <p class="text-[10px] text-slate-400 leading-relaxed">The browser couldn't find the file automatically. This usually happens in sandboxed environments.</p>
+                        <p class="text-[10px] text-emerald-600 font-bold mt-4 uppercase tracking-wider">Please click "Load JSON Manually" above.</p>
+                    </div>
+                `;
+            }
+        }
+
+        searchInput.addEventListener('input', () => {
+            renderList(searchInput.value);
+        });
+
+        function renderList(filter = '') {
+            if (!trieData) return;
+            listItems.innerHTML = '';
+            
+            const filteredWords = Object.keys(trieData)
+                .filter(w => w.includes(filter))
+                .sort((a, b) => trieData[b].c - trieData[a].c);
+
+            document.getElementById('itemCount').innerText = `${filteredWords.length} items`;
+
+            if (filteredWords.length === 0) {
+                listItems.innerHTML = `<div class="p-8 text-center text-slate-400 italic text-sm">No patterns found matching "${filter}"</div>`;
+                return;
+            }
+
+            filteredWords.forEach(word => {
+                const item = trieData[word];
+                const translation = item.t || "Root Pattern"; 
+                
+                const btn = document.createElement('button');
+                btn.className = "w-full flex items-center justify-between p-4 rounded-2xl hover:bg-emerald-50 transition-all border border-transparent hover:border-emerald-100 group text-right";
+                btn.onclick = () => selectWord(word);
+                btn.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <span class="text-[10px] font-mono bg-slate-100 text-slate-500 px-2 py-0.5 rounded-lg group-hover:bg-emerald-600 group-hover:text-white transition-colors">${item.c}</span>
+                        <div class="text-[11px] font-semibold text-slate-400 italic">${translation}</div>
+                    </div>
+                    <span class="font-arabic text-2xl text-slate-800 leading-none">${word}</span>
+                `;
+                listItems.appendChild(btn);
+            });
+        }
+
+        function selectWord(word) {
+            const rootNode = trieData[word];
+            activePhraseParts = [word];
+            updatePhrase();
+
+            document.getElementById('emptyState').classList.add('hidden');
+            document.getElementById('canvasHeader').classList.remove('hidden');
+            document.getElementById('treeContainer').classList.remove('hidden');
+            
+            document.getElementById('activeWordDisplay').innerText = word;
+            document.getElementById('activeWordMeta').innerText = `Total Occurrences: ${rootNode.c} | Unique Branches: ${Object.keys(rootNode.s).length}`;
+            
+            const treeContainer = document.getElementById('treeContainer');
+            treeContainer.innerHTML = '';
+            
+            const treeRoot = document.createElement('div');
+            treeRoot.className = "space-y-4";
+            
+            const head = document.createElement('div');
+            head.className = "text-2xl font-arabic font-bold text-emerald-700 bg-emerald-50 inline-block px-4 py-2 rounded-xl border border-emerald-100 mb-2";
+            head.innerText = word;
+            
+            treeRoot.appendChild(head);
+            treeRoot.appendChild(renderNodes(rootNode.s, 0));
+            treeContainer.appendChild(treeRoot);
+        }
+
+        function updatePhrase() {
+            phraseDisplay.innerText = activePhraseParts.join(' ');
+        }
+
+        function renderNodes(nodes, depth) {
+            if (!nodes || Object.keys(nodes).length === 0) return document.createElement('div');
+
+            const wrapper = document.createElement('div');
+            wrapper.className = "ml-8 trie-connector space-y-2";
+
+            Object.entries(nodes)
+                .sort((a, b) => b[1].c - a[1].c)
+                .forEach(([word, data]) => {
+                    const det = document.createElement('details');
+                    det.className = "group transition-all";
+                    
+                    const hasChildren = Object.keys(data.s).length > 0;
+                    
+                    det.addEventListener('toggle', (e) => {
+                        if (det.open) {
+                            activePhraseParts = activePhraseParts.slice(0, depth + 1);
+                            activePhraseParts.push(word);
+                            updatePhrase();
+                        }
+                    });
+
+                    det.innerHTML = `
+                        <summary class="flex items-center gap-3 cursor-pointer p-2.5 rounded-xl hover:bg-slate-50 transition-all">
+                            <div class="flex items-center justify-center w-6 h-6 rounded-lg ${hasChildren ? 'text-emerald-400 group-open:rotate-90' : 'text-slate-200'} transition-transform">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                            </div>
+                            <span class="font-arabic text-xl text-slate-700 leading-none">${word}</span>
+                            <span class="ml-auto text-[10px] font-mono text-slate-400 bg-slate-50 border border-slate-100 px-2 py-0.5 rounded-md">${data.c}x</span>
+                        </summary>
+                    `;
+
+                    if (hasChildren) {
+                        det.appendChild(renderNodes(data.s, depth + 1));
+                    } else {
+                        const refsDiv = document.createElement('div');
+                        refsDiv.className = "ml-10 p-3 flex flex-wrap gap-1.5";
+                        data.r.forEach(ref => {
+                            refsDiv.innerHTML += `<span class="text-[9px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200">Verse ${ref}</span>`;
+                        });
+                        det.appendChild(refsDiv);
+                    }
+                    
+                    wrapper.appendChild(det);
+                });
+
+            return wrapper;
+        }
+
+        // Start initialization
+        window.onload = initData;
+    </script>
+</body>
+</html>
